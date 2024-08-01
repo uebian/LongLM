@@ -1,6 +1,7 @@
 from types import MethodType
 from functools import partial
 import self_extend_patch as SE
+import torch.nn
 
 def modify_method_of_instance(instance, target_class_name, target_method_name, new_method, visited_instances=None):
     """
@@ -33,31 +34,34 @@ def modify_method_of_instance(instance, target_class_name, target_method_name, n
         setattr(instance, target_method_name, bond_method)
         target_found = True
         return target_found
-    elif hasattr(instance, '__dict__'):
-        for attr_name, attr_value in instance.__dict__.items():
-            if isinstance(attr_value, object) and not isinstance(attr_value, (list, tuple, dict, set)):
+    else:
+        for attr_name in dir(instance):
+            if attr_name.startswith("__"):
+                continue
+            try:
+                attr_value = getattr(instance, attr_name)
+            except:
+                continue
+            
+            if isinstance(attr_value, object) and type(attr_value).__module__.startswith("transformers"):
                 _found = modify_method_of_instance(attr_value, target_class_name, target_method_name, new_method, visited_instances)
                 if _found:
                     target_found = True
-            elif isinstance(attr_value, (list, tuple)):
-                for item in attr_value:
-                    if isinstance(item, object):
-                        _found = modify_method_of_instance(item, target_class_name, target_method_name, new_method, visited_instances)
-                        if _found:
-                            target_found = True
+            elif hasattr(attr_value, '__iter__') and (not isinstance(attr_value, dict)) and (not isinstance(attr_value, torch.Tensor)):
+                try:
+                    for item in attr_value:
+                        if isinstance(item, object):
+                            _found = modify_method_of_instance(item, target_class_name, target_method_name, new_method, visited_instances)
+                            if _found:
+                                target_found = True
+                except:
+                    continue
             # If attribute value is a dictionary, iterate over its values and recurse
             # E.g, for a ModuleList, its moudels are stored in a dictionary: ._modules
             elif isinstance(attr_value, dict):
                 for key, value in attr_value.items():
                     if isinstance(value, object):
                         _found = modify_method_of_instance(value, target_class_name, target_method_name, new_method, visited_instances)
-                        if _found:
-                            target_found = True
-            # If attribute value is a set, iterate and recurse
-            elif isinstance(attr_value, set):
-                for item in attr_value:
-                    if isinstance(item, object):
-                        _found = modify_method_of_instance(item, target_class_name, target_method_name, new_method, visited_instances)
                         if _found:
                             target_found = True
 
@@ -116,9 +120,9 @@ def apply(loaded_model, group_size, window_size, enable_flash_attention=False, s
                                             group_size_1=group_size, 
                                             group_size_2=window_size,
                                             scale_base=scale_base)
-            # after the default version of attention in 4.36 is LlamaSpdaAttention, but in before 4,36 or in 4.38, it is LlamaAttention
+            # after the default version of attention in 4.36 is LlamaSdpaAttention, but in before 4,36 or in 4.38, it is LlamaAttention
             # print("loaded_model", loaded_model)
-            modifed_2 = modify_method_of_instance(loaded_model, "LlamaAttention", "forward", self_extend_attention_forward)
+            modifed_2 = modify_method_of_instance(loaded_model, "LlamaSdpaAttention", "forward", self_extend_attention_forward)
             if not modifed_2:
                 raise Exception(f"Failed to modify the attention method of {arch_name}")
     elif 'Mistral' in arch_name:
