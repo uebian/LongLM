@@ -126,16 +126,16 @@ def self_extend_forward(
 
 
 
-    neighbor_q_cos, neighbor_q_sin = self.rotary_emb(value_states, query_position, seq_len=None)
-    neighbor_k_cos, neighbor_k_sin = self.rotary_emb(value_states, key_position, seq_len=None)
+    neighbor_q_cos, neighbor_q_sin = self.rotary_emb(value_states, query_position)
+    neighbor_k_cos, neighbor_k_sin = self.rotary_emb(value_states, key_position)
 
 
     _re_group_size_2 = 0 if query_position.max() < group_size_2 else group_size_2 # in case that, the smallest q position, g2-g2//g1 exceed the max position
     group_query_position = query_position // group_size_1 + _re_group_size_2 - _re_group_size_2 / group_size_1
     group_key_position = key_position // group_size_1
 
-    group_q_cos, group_q_sin = self.rotary_emb(value_states, group_query_position, seq_len=None)
-    group_k_cos, group_k_sin = self.rotary_emb(value_states, group_key_position, seq_len=None)
+    group_q_cos, group_q_sin = self.rotary_emb(value_states, group_query_position)
+    group_k_cos, group_k_sin = self.rotary_emb(value_states, group_key_position)
 
 
 
